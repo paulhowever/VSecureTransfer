@@ -11,6 +11,8 @@ keys/
 
 # Артефакты тестов / локальные данные
 build_recv_out/
+build_recv_out_neg/
+build_cov/
 .qa_out/
 
 .DS_Store

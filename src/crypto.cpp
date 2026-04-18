@@ -3,7 +3,9 @@
 #include <openssl/pem.h>
 #include <openssl/rand.h>
 #include <openssl/rsa.h>
+#include <openssl/x509.h>
 
+#include <algorithm>
 #include <cstdio>
 #include <cstring>
 #include <fstream>
@@ -20,9 +22,10 @@ Sha256Stream::Sha256Stream() {
 
 Sha256Stream::~Sha256Stream() { EVP_MD_CTX_free(ctx_); }
 
-void Sha256Stream::update(const void* data, std::size_t len) {
-  if (ctx_)
-    EVP_DigestUpdate(ctx_, data, len);
+bool Sha256Stream::update(const void* data, std::size_t len) {
+  if (!ctx_)
+    return false;
+  return EVP_DigestUpdate(ctx_, data, len) == 1;
 }
 
 bool Sha256Stream::final(unsigned char out[32]) {
@@ -32,6 +35,19 @@ bool Sha256Stream::final(unsigned char out[32]) {
     return false;
   }
   return true;
+}
+
+bool sha256_file(const std::string& path, unsigned char out[32]) {
+  Sha256Stream hasher;
+  std::ifstream in(path, std::ios::binary);
+  if (!in)
+    return false;
+  char buf[65536];
+  while (in.read(buf, sizeof(buf)) || in.gcount() > 0) {
+    if (!hasher.update(buf, static_cast<std::size_t>(in.gcount())))
+      return false;
+  }
+  return hasher.final(out);
 }
 
 static bool evp_encrypt_gcm_core(const unsigned char* key32, const unsigned char* iv12,
@@ -69,12 +85,61 @@ bool aes256_gcm_encrypt(const unsigned char* key32, const unsigned char* iv12, c
   return evp_encrypt_gcm_core(key32, iv12, plain, plain_len, out_cipher_with_tag);
 }
 
-static bool aes256_gcm_encrypt_file_impl(const unsigned char* key32, const unsigned char* iv12, FILE* in,
-                                         std::vector<unsigned char>& out_cipher_with_tag) {
+static bool aes256_gcm_encrypt_streams(const unsigned char* key32, const unsigned char* iv12, FILE* in, FILE* out) {
   EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
-  if (!ctx)
+  if (!ctx || !in || !out)
     return false;
   bool ok = false;
+  unsigned char inbuf[65536];
+  do {
+    if (EVP_EncryptInit_ex(ctx, EVP_aes_256_gcm(), nullptr, key32, iv12) != 1)
+      break;
+    if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_IVLEN, 12, nullptr) != 1)
+      break;
+    for (;;) {
+      const std::size_t n = std::fread(inbuf, 1, sizeof(inbuf), in);
+      if (n == 0 && ferror(in))
+        goto done;
+      if (n == 0)
+        break;
+      unsigned char obuf[sizeof(inbuf) + EVP_MAX_BLOCK_LENGTH];
+      int ol = 0;
+      if (EVP_EncryptUpdate(ctx, obuf, &ol, inbuf, static_cast<int>(n)) != 1)
+        goto done;
+      if (ol > 0 && std::fwrite(obuf, 1, static_cast<std::size_t>(ol), out) != static_cast<std::size_t>(ol))
+        goto done;
+      if (n < sizeof(inbuf))
+        break;
+    }
+    unsigned char finbuf[32];
+    int fl = 0;
+    if (EVP_EncryptFinal_ex(ctx, finbuf, &fl) != 1)
+      goto done;
+    if (fl > 0 && std::fwrite(finbuf, 1, static_cast<std::size_t>(fl), out) != static_cast<std::size_t>(fl))
+      goto done;
+    unsigned char tag[16];
+    if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_GET_TAG, 16, tag) != 1)
+      goto done;
+    if (std::fwrite(tag, 1, 16, out) != 16)
+      goto done;
+    ok = true;
+  } while (false);
+done:
+  EVP_CIPHER_CTX_free(ctx);
+  return ok;
+}
+
+bool aes256_gcm_encrypt_file_path(const unsigned char* key32, const unsigned char* iv12,
+                                  const std::string& path, std::vector<unsigned char>& out_cipher_with_tag) {
+  FILE* f = std::fopen(path.c_str(), "rb");
+  if (!f)
+    return false;
+  bool ok = false;
+  EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
+  if (!ctx) {
+    std::fclose(f);
+    return false;
+  }
   out_cipher_with_tag.clear();
   unsigned char inbuf[65536];
   do {
@@ -83,8 +148,8 @@ static bool aes256_gcm_encrypt_file_impl(const unsigned char* key32, const unsig
     if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_IVLEN, 12, nullptr) != 1)
       break;
     for (;;) {
-      std::size_t n = std::fread(inbuf, 1, sizeof(inbuf), in);
-      if (n == 0 && ferror(in)) {
+      const std::size_t n = std::fread(inbuf, 1, sizeof(inbuf), f);
+      if (n == 0 && ferror(f)) {
         out_cipher_with_tag.clear();
         goto done;
       }
@@ -118,16 +183,25 @@ static bool aes256_gcm_encrypt_file_impl(const unsigned char* key32, const unsig
   } while (false);
 done:
   EVP_CIPHER_CTX_free(ctx);
+  std::fclose(f);
   return ok;
 }
 
-bool aes256_gcm_encrypt_file_path(const unsigned char* key32, const unsigned char* iv12,
-                                 const std::string& path, std::vector<unsigned char>& out_cipher_with_tag) {
-  FILE* f = std::fopen(path.c_str(), "rb");
-  if (!f)
+bool aes256_gcm_encrypt_file_path_to_file(const unsigned char* key32, const unsigned char* iv12,
+                                          const std::string& in_path, const std::string& out_cipher_path) {
+  FILE* in = std::fopen(in_path.c_str(), "rb");
+  if (!in)
     return false;
-  bool ok = aes256_gcm_encrypt_file_impl(key32, iv12, f, out_cipher_with_tag);
-  std::fclose(f);
+  FILE* out = std::fopen(out_cipher_path.c_str(), "wb");
+  if (!out) {
+    std::fclose(in);
+    return false;
+  }
+  const bool ok = aes256_gcm_encrypt_streams(key32, iv12, in, out);
+  std::fclose(in);
+  std::fclose(out);
+  if (!ok)
+    std::remove(out_cipher_path.c_str());
   return ok;
 }
 
@@ -163,6 +237,56 @@ bool aes256_gcm_decrypt(const unsigned char* key32, const unsigned char* iv12,
   return ok;
 }
 
+bool aes256_gcm_decrypt_to_file(const unsigned char* key32, const unsigned char* iv12,
+                                const unsigned char* cipher_with_tag, std::size_t len,
+                                const std::string& out_plain_path) {
+  if (len < 16)
+    return false;
+  FILE* out = std::fopen(out_plain_path.c_str(), "wb");
+  if (!out)
+    return false;
+  EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
+  if (!ctx) {
+    std::fclose(out);
+    return false;
+  }
+  bool ok = false;
+  const std::size_t ct_len = len - 16;
+  const unsigned char* tag = cipher_with_tag + ct_len;
+  do {
+    if (EVP_DecryptInit_ex(ctx, EVP_aes_256_gcm(), nullptr, key32, iv12) != 1)
+      break;
+    if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_IVLEN, 12, nullptr) != 1)
+      break;
+    std::size_t off = 0;
+    while (off < ct_len) {
+      const int chunk = static_cast<int>(std::min<std::size_t>(65536, ct_len - off));
+      unsigned char obuf[65536 + EVP_MAX_BLOCK_LENGTH];
+      int ol = 0;
+      if (EVP_DecryptUpdate(ctx, obuf, &ol, cipher_with_tag + off, chunk) != 1)
+        goto fail;
+      if (ol > 0 && std::fwrite(obuf, 1, static_cast<std::size_t>(ol), out) != static_cast<std::size_t>(ol))
+        goto fail;
+      off += static_cast<std::size_t>(chunk);
+    }
+    if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_TAG, 16, const_cast<unsigned char*>(tag)) != 1)
+      break;
+    unsigned char finbuf[256];
+    int fl = 0;
+    if (EVP_DecryptFinal_ex(ctx, finbuf, &fl) != 1)
+      break;
+    if (fl > 0 && std::fwrite(finbuf, 1, static_cast<std::size_t>(fl), out) != static_cast<std::size_t>(fl))
+      break;
+    ok = true;
+  } while (false);
+fail:
+  EVP_CIPHER_CTX_free(ctx);
+  std::fclose(out);
+  if (!ok)
+    std::remove(out_plain_path.c_str());
+  return ok;
+}
+
 bool load_private_pem(const std::string& path, EVP_PKEY** out) {
   *out = nullptr;
   FILE* f = std::fopen(path.c_str(), "rb");
@@ -180,7 +304,18 @@ bool load_public_pem(const std::string& path, EVP_PKEY** out) {
   if (!f)
     return false;
   EVP_PKEY* p = PEM_read_PUBKEY(f, nullptr, nullptr, nullptr);
+  if (p) {
+    std::fclose(f);
+    *out = p;
+    return true;
+  }
+  std::rewind(f);
+  X509* x = PEM_read_X509(f, nullptr, nullptr, nullptr);
   std::fclose(f);
+  if (!x)
+    return false;
+  p = X509_get_pubkey(x);
+  X509_free(x);
   *out = p;
   return p != nullptr;
 }
@@ -302,9 +437,6 @@ bool rsa_pss_sha256_verify(EVP_PKEY* sign_pub, const unsigned char* msg, std::si
 
 void free_pkey(EVP_PKEY* p) { EVP_PKEY_free(p); }
 
-void random_bytes(unsigned char* buf, std::size_t len) {
-  if (RAND_bytes(buf, static_cast<int>(len)) != 1)
-    std::memset(buf, 0, len);
-}
+bool random_bytes(unsigned char* buf, std::size_t len) { return RAND_bytes(buf, static_cast<int>(len)) == 1; }
 
 } // namespace vsecure::crypto

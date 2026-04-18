@@ -21,10 +21,13 @@ jobs:
             libssl-dev \
             python3
 
-      - name: Configure and build (CMake + OpenSSL)
+      - name: Configure and build (CMake + OpenSSL + tests)
         run: |
-          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DVSECURE_BUILD_TESTS=ON
           cmake --build build -j"$(nproc)"
+
+      - name: Unit tests (ctest)
+        run: cd build && ctest --output-on-failure
 
       - name: Full QA suite
         run: ./scripts/qa_full.sh

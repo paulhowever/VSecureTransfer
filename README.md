@@ -15,7 +15,7 @@
 | Хэш исходного файла | SHA-256 в метаданных, пересчёт после расшифрования |
 | Сеансовый ключ | Случайные 32 байта, упаковка **RSA-OAEP** (SHA-256 + MGF1-SHA256) открытым ключом **получателя** |
 | Подпись отправителя | **RSA-PSS** (SHA-256, salt = digest length) над `meta ‖ IV ‖ wrapped_key` |
-| Транспорт | TCP: `uint64` big-endian длина кадра, затем тело; ответ **ACK** 8 байт (`VACK` + код) |
+| Транспорт | TCP: `uint64` big-endian длина кадра, затем тело; ответ **ACK** 8 байт (`VACK` + код); **подключение через `getaddrinfo`** (IPv4/IPv6), сервер по возможности слушает **IPv6 dual-stack** (`IPV6_V6ONLY=0`) с запасным IPv4 |
 | Анти-replay | Окно времени ±300 с по `unix_timestamp_ms` и учёт `message_id` (16 байт) в файле `--seen-file` |
 
 Поддерживаемые расширения имён файлов на отправителе: `.mp4`, `.avi`, `.mkv`.
@@ -102,6 +102,8 @@ cmake --build build -j
   --recv-pub keys/receiver_wrap_pub.pem
 ```
 
+Для имени хоста (в т.ч. `localhost` при записи `::1` в `/etc/hosts`) отправитель резолвит адреса через **`getaddrinfo`**, предпочитая **IPv6**, затем IPv4.
+
 Опционально: `--seen-file ПУТЬ` у получателя (по умолчанию `./out/.vsecure_seen`).
 
 ### Отладка / QA
@@ -110,20 +112,32 @@ cmake --build build -j
 
 ## CI
 
-На каждый push / PR в `main` запускается [GitHub Actions](.github/workflows/ci.yml): `ubuntu-latest`, пакеты `build-essential`, `cmake`, `libssl-dev`, `python3`, затем `cmake`‑сборка и `./scripts/qa_full.sh`.
+На каждый push / PR в `main` запускается [GitHub Actions](.github/workflows/ci.yml): `ubuntu-latest`, пакеты `build-essential`, `cmake`, `libssl-dev`, `python3`, затем `cmake`‑сборка с **`-DVSECURE_BUILD_TESTS=ON`**, **`ctest`** (Catch2) и [`scripts/qa_full.sh`](scripts/qa_full.sh).
 
 ## Тесты
 
 | Скрипт | Назначение |
 |--------|------------|
-| [`scripts/run_all_tests.sh`](scripts/run_all_tests.sh) | Базовый round-trip + отклонение мусорного кадра |
-| [`scripts/qa_full.sh`](scripts/qa_full.sh) | Полный регресс: сборка, базовые тесты, ~4 MiB файл, replay, неверный ключ подписи |
+| [`scripts/run_all_tests.sh`](scripts/run_all_tests.sh) | `ctest` (юнит-тесты Catch2, если собраны через CMake), round-trip, отклонение мусорного кадра |
+| [`scripts/qa_full.sh`](scripts/qa_full.sh) | Полный регресс: `run_all_tests`, ~4 MiB, replay, неверный ключ подписи, отсутствующий файл, разрыв TCP при приёме тела, `--host localhost`, каталог вывода только для чтения |
+| [`scripts/coverage.sh`](scripts/coverage.sh) | Отдельная сборка в `build_cov/` с `-DVSECURE_ENABLE_COVERAGE=ON`, `ctest`, при наличии — `lcov` |
+
+**Юнит-тесты** (Catch2 v3, подтягиваются через CMake `FetchContent`): метаданные, разбор пакета, `signing_blob`, окно времени / replay-store, `IntegrityChecker` + SHA-256.
 
 ```bash
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DVSECURE_BUILD_TESTS=ON
+cmake --build build -j
+cd build && ctest --output-on-failure
 ./scripts/qa_full.sh
 ```
 
-Требуются `bash`, `make`, `python3`, `openssl`, утилиты `dd`/`head`, `cmp`.
+Покрытие строк (gcc/clang, `gcov` / опционально `lcov`):
+
+```bash
+./scripts/coverage.sh
+```
+
+Требуются `bash`, `cmake` (для юнит-тестов и CI), `make` (альтернативная сборка), `python3`, `openssl`, утилиты `dd`/`head`, `cmp`.
 
 ## Коды ACK (ответ получателя)
 

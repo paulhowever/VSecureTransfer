@@ -12,21 +12,23 @@ CXXFLAGS ?= -std=c++17 -O2 -Wall -Wextra -pedantic -Iinclude
 LDFLAGS ?= -L$(OPENSSL_PREFIX)/lib
 LDLIBS ?= -lssl -lcrypto
 
-SRC_LIB := src/crypto.cpp src/metadata.cpp src/packet.cpp src/tcp.cpp src/replay.cpp
+SRC_LIB := src/crypto.cpp src/metadata.cpp src/packet.cpp src/tcp.cpp src/replay.cpp \
+	src/event_journal.cpp src/modules_tz.cpp
 OBJ_LIB := $(SRC_LIB:.cpp=.o)
 
 all: vsecure_sender vsecure_receiver
 
-vsecure_sender: apps/sender_main.o $(OBJ_LIB)
+vsecure_sender: apps/sender_main.o src/sender_run.o $(OBJ_LIB)
 	$(CXX) $(LDFLAGS) -o $@ $^ $(LDLIBS)
 
-vsecure_receiver: apps/receiver_main.o $(OBJ_LIB)
+vsecure_receiver: apps/receiver_main.o src/receiver_run.o $(OBJ_LIB)
 	$(CXX) $(LDFLAGS) -o $@ $^ $(LDLIBS)
 
 %.o: %.cpp
 	$(CXX) $(CXXFLAGS) -I$(OPENSSL_PREFIX)/include -c -o $@ $<
 
 clean:
-	rm -f vsecure_sender vsecure_receiver $(OBJ_LIB) apps/sender_main.o apps/receiver_main.o
+	rm -f vsecure_sender vsecure_receiver $(OBJ_LIB) apps/sender_main.o apps/receiver_main.o \
+		src/sender_run.o src/receiver_run.o
 
 .PHONY: all clean

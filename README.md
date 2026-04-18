@@ -65,6 +65,24 @@ cmake --build build -j
 
 На macOS `CMakeLists.txt` пытается подставить `OPENSSL_ROOT_DIR` из типичных путей Homebrew.
 
+### Если в терминале `zsh: command not found: cmake`
+
+**Юнит-тесты** (Catch2, `ctest`) собираются только через CMake. На macOS:
+
+```bash
+brew install cmake
+```
+
+Часто нужно, чтобы в сессии был путь Homebrew, например в `~/.zprofile`:
+
+```bash
+eval "$(/opt/homebrew/bin/brew shellenv)"
+```
+
+Пока CMake не установлен, можно собрать **`make -j`** и запустить **`./scripts/qa_full.sh`** из корня репозитория — интеграционные сценарии выполнятся, а `ctest` будет пропущен (нет `build/vsecure_unit_tests`).
+
+Если команда **`cd build`** завершилась ошибкой (каталог не создался), не подряд выполняйте **`cd .. && ./scripts/qa_full.sh`**: вы можете оказаться в родительском каталоге (`maxik_WW`), где нет `scripts/qa_full.sh`. Сначала снова перейдите в **`VSecureTransfer`**, затем запускайте скрипт.
+
 ## Ключи
 
 Сгенерируйте **две** пары RSA (отдельно для подписи отправителя и для обёртки AES у получателя):

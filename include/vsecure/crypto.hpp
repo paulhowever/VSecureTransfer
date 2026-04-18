@@ -16,7 +16,8 @@ public:
   Sha256Stream& operator=(const Sha256Stream&) = delete;
 
   void update(const void* data, std::size_t len);
-  void final(unsigned char out[32]);
+  /** false при сбое инициализации EVP или DigestFinal; out обнуляется. */
+  bool final(unsigned char out[32]);
 
 private:
   EVP_MD_CTX* ctx_ = nullptr;

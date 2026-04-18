@@ -3,7 +3,9 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "${ROOT}"
 echo "=== QA: сборка ==="
-make clean && make -j
+# shellcheck disable=SC1091
+source "${ROOT}/scripts/pick_build.sh"
+export VSECURE_SKIP_REBUILD=1
 echo "=== QA: базовые и негативные тесты ==="
 ./scripts/run_all_tests.sh
 echo "=== QA: крупный файл ==="

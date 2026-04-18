@@ -2,6 +2,7 @@
 
 Защищённая передача одного видеофайла по TCP: **конфиденциальность** (AES-256-GCM), **целостность** (SHA-256 исходника + AEAD), **аутентичность** (RSA-PSS подпись канонических полей и RSA-OAEP обёртка сеансового ключа). Проект учебный / демонстрационный, без PKI и без потокового стриминга.
 
+[![CI](https://github.com/paulhowever/VSecureTransfer/actions/workflows/ci.yml/badge.svg)](https://github.com/paulhowever/VSecureTransfer/actions/workflows/ci.yml)
 [![C++17](https://img.shields.io/badge/C%2B%2B-17-blue.svg)](https://en.cppreference.com/w/cpp/17)
 [![OpenSSL 3](https://img.shields.io/badge/OpenSSL-3.x-green.svg)](https://www.openssl.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
@@ -106,6 +107,10 @@ cmake --build build -j
 ### Отладка / QA
 
 Если задана переменная окружения `VSECURE_DUMP_PACKET=/path/to/file.bin`, отправитель дополнительно сохранит **сырое** тело пакета (без TCP-длины) — используется в [`scripts/test_replay_packet.sh`](scripts/test_replay_packet.sh).
+
+## CI
+
+На каждый push / PR в `main` запускается [GitHub Actions](.github/workflows/ci.yml): `ubuntu-latest`, пакеты `build-essential`, `cmake`, `libssl-dev`, `python3`, затем `cmake`‑сборка и `./scripts/qa_full.sh`.
 
 ## Тесты
 

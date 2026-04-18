@@ -7,9 +7,10 @@ OUT="${ROOT}/.qa_out/replay_$$"
 KEYS="${ROOT}/keys"
 mkdir -p "${OUT}" "${KEYS}"
 [[ -f "${KEYS}/sender_sign_priv.pem" ]] || "${ROOT}/scripts/gen_keys.sh"
-make -C "${ROOT}" -j >/dev/null
-SENDER="${ROOT}/vsecure_sender"
-RECEIVER="${ROOT}/vsecure_receiver"
+# shellcheck disable=SC1091
+source "${ROOT}/scripts/pick_build.sh"
+SENDER="${VSECURE_SENDER}"
+RECEIVER="${VSECURE_RECEIVER}"
 SEEN="${OUT}/seen.txt"
 PKT="${OUT}/captured.bin"
 

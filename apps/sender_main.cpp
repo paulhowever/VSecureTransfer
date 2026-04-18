@@ -97,7 +97,12 @@ int main(int argc, char** argv) {
   meta.original_size = fs::file_size(fpath);
   meta.unix_timestamp_ms = now_ms();
   vsecure::crypto::random_bytes(meta.message_id, sizeof(meta.message_id));
-  hasher.final(meta.sha256_plaintext);
+  if (!hasher.final(meta.sha256_plaintext)) {
+    std::cerr << "Ошибка: не удалось завершить вычисление SHA-256.\n";
+    vsecure::crypto::free_pkey(sign_priv);
+    vsecure::crypto::free_pkey(wrap_pub);
+    return 1;
+  }
   meta.filename_utf8 = fpath.filename().string();
   if (meta.filename_utf8.size() > 1024 * 1024) {
     std::cerr << "Ошибка: слишком длинное имя файла.\n";

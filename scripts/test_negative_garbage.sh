@@ -6,8 +6,9 @@ OUT="${ROOT}/build_recv_out_neg"
 KEYS="${ROOT}/keys"
 mkdir -p "${OUT}" "${KEYS}"
 [[ -f "${KEYS}/sender_sign_pub.pem" ]] || "${ROOT}/scripts/gen_keys.sh"
-make -C "${ROOT}" -j >/dev/null
-RECEIVER="${ROOT}/vsecure_receiver"
+# shellcheck disable=SC1091
+source "${ROOT}/scripts/pick_build.sh"
+RECEIVER="${VSECURE_RECEIVER}"
 
 "${RECEIVER}" --port "${PORT}" --out-dir "${OUT}" \
   --sender-pub "${KEYS}/sender_sign_pub.pem" \

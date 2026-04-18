@@ -6,9 +6,10 @@ OUT="${ROOT}/.qa_out/large_$$"
 KEYS="${ROOT}/keys"
 mkdir -p "${OUT}" "${KEYS}"
 [[ -f "${KEYS}/sender_sign_priv.pem" ]] || "${ROOT}/scripts/gen_keys.sh"
-make -C "${ROOT}" -j >/dev/null
-SENDER="${ROOT}/vsecure_sender"
-RECEIVER="${ROOT}/vsecure_receiver"
+# shellcheck disable=SC1091
+source "${ROOT}/scripts/pick_build.sh"
+SENDER="${VSECURE_SENDER}"
+RECEIVER="${VSECURE_RECEIVER}"
 
 SRC="/tmp/vsecure_large_$$.mkv"
 if ! dd if=/dev/urandom of="${SRC}" bs=1048576 count=4 status=none 2>/dev/null; then

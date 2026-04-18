@@ -187,7 +187,15 @@ int main(int argc, char** argv) {
   vsecure::crypto::Sha256Stream h2;
   h2.update(plain.data(), plain.size());
   unsigned char recomputed[32];
-  h2.final(recomputed);
+  if (!h2.final(recomputed)) {
+    std::cerr << "Ошибка: не удалось завершить пересчёт SHA-256.\n";
+    std::memset(aes_key.data(), 0, aes_key.size());
+    vsecure::tcp::send_ack(client, vsecure::protocol::kAckBadFormat);
+    vsecure::tcp::close_fd(client);
+    vsecure::crypto::free_pkey(sign_pub);
+    vsecure::crypto::free_pkey(wrap_priv);
+    return 1;
+  }
   if (std::memcmp(recomputed, pkt.meta.sha256_plaintext, 32) != 0) {
     std::cerr << "Ошибка: целостность нарушена — хэш SHA-256 не совпадает.\n";
     std::memset(aes_key.data(), 0, aes_key.size());

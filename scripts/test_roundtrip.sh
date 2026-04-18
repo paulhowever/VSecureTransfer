@@ -10,18 +10,10 @@ if [[ ! -f "${KEYS}/sender_sign_priv.pem" ]]; then
   "${ROOT}/scripts/gen_keys.sh"
 fi
 
-if command -v cmake >/dev/null 2>&1; then
-  BUILD="${ROOT}/build"
-  mkdir -p "${BUILD}"
-  cmake -S "${ROOT}" -B "${BUILD}" -DCMAKE_BUILD_TYPE=Release >/dev/null
-  cmake --build "${BUILD}" -j
-  SENDER="${BUILD}/vsecure_sender"
-  RECEIVER="${BUILD}/vsecure_receiver"
-else
-  make -C "${ROOT}" -j
-  SENDER="${ROOT}/vsecure_sender"
-  RECEIVER="${ROOT}/vsecure_receiver"
-fi
+# shellcheck disable=SC1091
+source "${ROOT}/scripts/pick_build.sh"
+SENDER="${VSECURE_SENDER}"
+RECEIVER="${VSECURE_RECEIVER}"
 
 SRC="/tmp/vsecure_test_$$.mkv"
 TEST_FILE="${SRC}"

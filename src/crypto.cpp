@@ -25,10 +25,13 @@ void Sha256Stream::update(const void* data, std::size_t len) {
     EVP_DigestUpdate(ctx_, data, len);
 }
 
-void Sha256Stream::final(unsigned char out[32]) {
+bool Sha256Stream::final(unsigned char out[32]) {
   unsigned int w = 0;
-  if (!ctx_ || EVP_DigestFinal_ex(ctx_, out, &w) != 1 || w != 32)
+  if (!ctx_ || EVP_DigestFinal_ex(ctx_, out, &w) != 1 || w != 32) {
     std::memset(out, 0, 32);
+    return false;
+  }
+  return true;
 }
 
 static bool evp_encrypt_gcm_core(const unsigned char* key32, const unsigned char* iv12,

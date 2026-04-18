@@ -31,3 +31,17 @@ jobs:
 
       - name: Full QA suite
         run: ./scripts/qa_full.sh
+
+  # Сценарий «как на Windows»: Linux-образ из Dockerfile + полный QA внутри контейнера.
+  docker-qa:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build -t vsecure-transfer:ci .
+
+      - name: QA inside container (gen_keys + qa_full)
+        run: |
+          docker run --rm vsecure-transfer:ci bash -lc \
+            'cd /app && ./scripts/gen_keys.sh && ./scripts/qa_full.sh'

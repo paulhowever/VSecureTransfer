@@ -65,7 +65,7 @@ docker build -t vsecure-transfer .
 docker run --rm -it vsecure-transfer bash -lc 'cd /app && ./scripts/gen_keys.sh && ./scripts/qa_full.sh'
 ```
 
-Образ содержит `build/vsecure_sender` и `build/vsecure_receiver` в `PATH`; ключи создаются внутри запуска (каталог `keys/` в контейнере, не на хосте).
+Образ содержит `build/vsecure_sender` и `build/vsecure_receiver` в `PATH`; ключи создаются внутри запуска (каталог `keys/` в контейнере, не на хосте). Тот же сценарий гоняется в CI (**job `docker-qa`** в [`.github/workflows/ci.yml`](.github/workflows/ci.yml)).
 
 ### Вариант A: Makefile (macOS / Homebrew)
 

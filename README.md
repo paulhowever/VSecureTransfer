@@ -2,6 +2,8 @@
 
 Защищённая передача одного видеофайла по TCP: **конфиденциальность** (AES-256-GCM), **целостность** (SHA-256 исходника + AEAD), **аутентичность** (RSA-PSS подпись канонических полей и RSA-OAEP обёртка сеансового ключа). Проект учебный / демонстрационный, без PKI и без потокового стриминга.
 
+**Для заказчика / приёмки:** одностраничная сопроводительная записка — [`docs/HANDOFF.md`](docs/HANDOFF.md) (ключи, порты, порядок запуска, Windows через Docker/WSL2).
+
 [![CI](https://github.com/paulhowever/VSecureTransfer/actions/workflows/ci.yml/badge.svg)](https://github.com/paulhowever/VSecureTransfer/actions/workflows/ci.yml)
 [![C++17](https://img.shields.io/badge/C%2B%2B-17-blue.svg)](https://en.cppreference.com/w/cpp/17)
 [![OpenSSL 3](https://img.shields.io/badge/OpenSSL-3.x-green.svg)](https://www.openssl.org/)
@@ -45,8 +47,25 @@ sequenceDiagram
 
 ### Зависимости
 
-- Компилятор с **C++17** (Clang, GCC, MSVC).
+- Компилятор с **C++17** (**Clang** или **GCC**) для **нативной** сборки на **Linux** и **macOS**.
 - **OpenSSL 3.x** (libcrypto; заголовки `openssl/evp.h`, `openssl/pem.h`, …).
+
+### Платформы и Windows
+
+| ОС | Как работать |
+|----|----------------|
+| **Linux** | Нативно: `cmake` или `make`, см. ниже. |
+| **macOS** | Нативно: Homebrew OpenSSL, при необходимости `brew install cmake`. |
+| **Windows** | Код использует POSIX (сокеты, `poll`, `mmap`, временные файлы). **Нативная сборка MSVC в репозитории не поддерживается.** Удобные варианты: **Docker Desktop** (Linux-контейнер) или **WSL2 (Ubuntu)** — те же команды, что на Linux. Подробности в [`docs/HANDOFF.md`](docs/HANDOFF.md). |
+
+**Docker (один раз собрать образ, затем приёмка внутри контейнера):**
+
+```bash
+docker build -t vsecure-transfer .
+docker run --rm -it vsecure-transfer bash -lc 'cd /app && ./scripts/gen_keys.sh && ./scripts/qa_full.sh'
+```
+
+Образ содержит `build/vsecure_sender` и `build/vsecure_receiver` в `PATH`; ключи создаются внутри запуска (каталог `keys/` в контейнере, не на хосте).
 
 ### Вариант A: Makefile (macOS / Homebrew)
 

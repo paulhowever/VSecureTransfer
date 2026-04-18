@@ -1,0 +1,14 @@
+# Не тащить в контекст сборки Docker
+.git
+build
+build_cov
+.qa_out
+**/.qa_out
+build_recv_out
+build_recv_out_*
+*.o
+*.a
+keys
+*.pem
+.DS_Store
+**/*.dSYM

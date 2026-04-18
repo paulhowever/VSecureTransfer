@@ -272,6 +272,25 @@ int run_secure_receiver(int argc, char** argv) {
   }
 
   const std::string tmp_plain = out_path.string() + ".vst.tmp";
+  {
+    std::ofstream probe(tmp_plain, std::ios::binary | std::ios::trunc);
+    if (!probe) {
+      std::cerr << "Ошибка: нет доступа на запись в каталог назначения (не удалось создать временный файл "
+                   "расшифровки).\n";
+      std::memset(aes_key.data(), 0, aes_key.size());
+      modules_tz::ServerTransport::send_ack(client, protocol::kAckIoError);
+      modules_tz::ServerTransport::close(client);
+      crypto::free_pkey(sign_pub);
+      crypto::free_pkey(wrap_priv);
+      event_journal::line("ошибка: каталог назначения недоступен для записи");
+      event_journal::close();
+      return 1;
+    }
+    probe.close();
+    std::error_code rm_ec;
+    fs::remove(tmp_plain, rm_ec);
+  }
+
   if (!modules_tz::Decryptor::aes256_gcm_to_file(aes_key.data(), pkt.iv.data(), pkt.ciphertext.data(),
                                                 pkt.ciphertext.size(), tmp_plain)) {
     std::cerr << "Ошибка: расшифрование AES-256-GCM не удалось (повреждение или подмена данных).\n";

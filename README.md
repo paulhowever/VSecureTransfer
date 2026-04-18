@@ -137,7 +137,7 @@ eval "$(/opt/homebrew/bin/brew shellenv)"
 | Скрипт | Назначение |
 |--------|------------|
 | [`scripts/run_all_tests.sh`](scripts/run_all_tests.sh) | `ctest` (юнит-тесты Catch2, если собраны через CMake), round-trip, отклонение мусорного кадра |
-| [`scripts/qa_full.sh`](scripts/qa_full.sh) | Полный регресс: `run_all_tests`, ~4 MiB, replay, неверный ключ подписи, отсутствующий файл, разрыв TCP при приёме тела, `--host localhost`, каталог вывода только для чтения |
+| [`scripts/qa_full.sh`](scripts/qa_full.sh) | Полный регресс: `run_all_tests`, ~4 MiB, replay, неверный ключ подписи, отсутствующий файл, разрыв TCP при приёме тела, `--host localhost`, каталог вывода только для чтения (**ACK 7** / ошибка записи, а не расшифрование) |
 | [`scripts/coverage.sh`](scripts/coverage.sh) | Отдельная сборка в `build_cov/` с `-DVSECURE_ENABLE_COVERAGE=ON`, `ctest`, при наличии — `lcov` |
 
 **Юнит-тесты** (Catch2 v3, подтягиваются через CMake `FetchContent`): метаданные, разбор пакета, `signing_blob`, окно времени / replay-store, `IntegrityChecker` + SHA-256.

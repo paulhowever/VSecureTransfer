@@ -74,12 +74,12 @@ TEST_CASE("packet encode: неверная длина IV") {
 }
 
 TEST_CASE("packet encode_prefix согласован с cipher_len") {
-  const auto p0 = minimal_packet();
+  auto p0 = minimal_packet();
   std::vector<unsigned char> prefix;
   const std::uint64_t ct = 1024;
   REQUIRE(packet::encode_file_transfer_prefix(p0, ct, prefix));
 
-  p0.ciphertext.assign(static_cast<std::size_t>(ct), 0x55);
+  p0.ciphertext.assign(static_cast<std::size_t>(ct), static_cast<unsigned char>(0x55));
   std::vector<unsigned char> full;
   REQUIRE(packet::encode_file_transfer(p0, full));
   REQUIRE(full.size() == prefix.size() + static_cast<std::size_t>(ct));

@@ -1,0 +1,17 @@
+# Сборка
+build/
+*.o
+vsecure_sender
+vsecure_receiver
+*.a
+
+# Ключи и секреты (никогда не коммитить)
+keys/
+*.pem
+
+# Артефакты тестов / локальные данные
+build_recv_out/
+.qa_out/
+
+.DS_Store
+*.dSYM/
